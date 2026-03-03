@@ -2,21 +2,38 @@
 
 # read_serial ()
 #connect via Bluethooth, parse CSV and return the array
+# serial_reader.py
+import asyncio
+from bleak import BleakClient, BleakScanner
 
-def read_serial():
-    """
-    Reads current data from Arduino.
-    Returns: time_stamp, force, emg, imu_acc, imu_gyro
-    For now, we're using example values for testing without Arduino.
+DEVICE_NAME = "SensorNode"
+UART_TX_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # notify
 
-    """
-    import time
-    import random
+class BLEReader:
+    def __init__(self):
+        self.line_buffer = ""
+        self.lines = asyncio.Queue()
+        self.client = None
 
-    time_stamp = time.time()
-    force = random.uniform(0, 10)       # simulate pressure
-    emg = random.uniform(0, 1)          # simulate EMG
-    imu_acc = [random.uniform(-1,1) for _ in range(3)]
-    imu_gyro = [random.uniform(-1,1) for _ in range(3)]
+    async def connect(self):
+        devices = await BleakScanner.discover()
+        sensor = next((d for d in devices if d.name == DEVICE_NAME), None)
+        if not sensor:
+            raise Exception(f"{DEVICE_NAME} not found")
 
-    return time_stamp, force, emg, imu_acc, imu_gyro
+        self.client = BleakClient(sensor.address)
+        await self.client.connect()
+        await self.client.start_notify(UART_TX_UUID, self._handle_rx)
+        print(f"Connected to {DEVICE_NAME}")
+
+    def _handle_rx(self, sender, data: bytearray):
+        text = data.decode(errors='ignore')
+        for c in text:
+            if c == '\n':
+                asyncio.create_task(self.lines.put(self.line_buffer.strip()))
+                self.line_buffer = ""
+            elif c != '\r':
+                self.line_buffer += c
+
+    async def read_line(self):
+        return await self.lines.get()
