@@ -837,6 +837,30 @@ function redrawAllCharts() {
   drawLineChart('imuChart', gyroMagPoints, '#35c8f1');
 }
 
+
+
+  // ═══════════════════════════════════════
+  // WEBSOCKET
+  // ═══════════════════════════════════════
+let ws = null;
+
+function sendToFastAPI(sensorData) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  
+  const data = {
+    timestamp: Date.now(),
+    user_id: patientSession.id || "unknown",
+    exercise: currentExercise === 1 ? "ex1" : "ex2",
+    trial: currentTrial + 1,
+    status: isRecording ? "recording" : isResting ? "resting" : "ready",
+    sensor_data: sensorData || {pressure: 0, emg_raw: 0, imu: {ax:0,ay:0,az:0,gx:0,gy:0,gz:0}}  // ← SIEMPRE envía
+  };
+  
+  ws.send(JSON.stringify(data));
+}
+
+
+
 // ══════════════════════════════════════════════════════════════
 //  BLE
 // ══════════════════════════════════════════════════════════════
@@ -863,87 +887,193 @@ async function connectBLE() {
     const mvcBtn = document.getElementById('btn-mvc-calib');
     if (mvcBtn) mvcBtn.disabled = false;
   } catch(e) { status.textContent='Error: '+e.message; }
+
+  if (!ws) {
+  ws = new WebSocket("ws://127.0.0.1:8000/ws");
+  ws.onopen = () => console.log("✅ WS connected");
+  //ws.onmessage = (e) => console.log("Server:", e.data);
+  ws.onmessage = (e) => {
+    console.log("Server:", e.data);
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.data && msg.data.sensor_data) {
+        const data = msg.data.sensor_data;
+        
+        // ✅ ACTUALIZA LA INTERFAZ AQUÍ
+        document.getElementById('gauge-num').textContent = data.pressure?.toFixed(1) || '0';
+        document.getElementById('v-emg-raw').textContent = data.emg_raw?.toFixed(1) || '0';
+        document.getElementById('v-emg-rms').textContent = data.emg_rms?.toFixed(2) || '0';
+        
+        // IMU
+        document.getElementById('v-ax').textContent = (data.imu?.ax || 0).toFixed(3) + ' g';
+        document.getElementById('v-ay').textContent = (data.imu?.ay || 0).toFixed(3) + ' g';
+        document.getElementById('v-az').textContent = (data.imu?.az || 0).toFixed(3) + ' g';
+        document.getElementById('v-gx').textContent = (data.imu?.gx || 0).toFixed(3) + ' °/s';
+        document.getElementById('v-gy').textContent = (data.imu?.gy || 0).toFixed(3) + ' °/s';
+        document.getElementById('v-gz').textContent = (data.imu?.gz || 0).toFixed(3) + ' °/s';
+        
+        // Barra EMG
+        const emgBar = document.getElementById('bar-emg');
+        if (emgBar) emgBar.style.width = Math.min(100, (data.emg_raw || 0)/1000*100) + '%';
+        
+        console.log("✅ Datos servidor OK - EMG:", data.emg_raw, "IMU:", data.imu);
+      }
+    } catch(err) {
+      console.error("JSON error:", err);
+    }
+  };
+  }
 }
+
+// ================= BUFFER BLE =================
+
+// ================= VARIABLES =================
+const EMG_WINDOW = 50;
+let emgRawWindow = [];
+
+let pressure = 0, emgRaw = 0;
+let axG = 0, ayG = 0, azG = 0;
+let gxD = 0, gyD = 0, gzD = 0;
+
+// ================= BLE DATA =================
+let frameBuffer = { S: null, A: null, G: null };
 
 function onData(e) {
   const chunk = new TextDecoder().decode(e.target.value);
   lineBuffer += chunk;
   const lines = lineBuffer.split(/\r?\n/);
   lineBuffer = lines.pop();
-  lines.forEach(parseLine);
+
+  lines.forEach((line) => {
+    line = line.trim();
+    if (!line) return;
+
+    const parts = line.split(',').map(x => x.trim());
+    const header = parts.shift(); // 'S', 'A', 'G'
+
+    const nums = parts.map(Number);
+    if (nums.some(isNaN)) return;
+
+    frameBuffer[header] = nums;
+
+    // 🔹 Si tenemos los 3 paquetes → full frame
+    if (frameBuffer.S && frameBuffer.A && frameBuffer.G) {
+      const fullPacket = [
+        ...frameBuffer.S,    // p, emg
+        ...frameBuffer.A,    // ax, ay, az
+        ...frameBuffer.G     // gx, gy, gz
+      ];
+      parseLine(fullPacket);
+
+      // Reset buffer para el próximo frame
+      frameBuffer = { S: null, A: null, G: null };
+    }
+  });
 }
 
-// Rolling buffer for windowed RMS (last 50 raw EMG samples)
-const EMG_WINDOW = 50;
-let emgRawWindow = [];
+// ================= PARSER =================
+function parseLine(nums) {
+  let [p, emg, ax, ay, az, gx, gy, gz] = nums;
 
-let lastPressure = 0;
+  // Desescalar
+  p   = p / 10;
+  ax  = ax / 100;
+  ay  = ay / 100;
+  az  = az / 100;
+  gx  = gx / 100;
+  gy  = gy / 100;
+  gz  = gz / 100;
 
-function parseLine(line) {
-  line = line.trim();
-  if (!line) return;
-  const parts = line.split(',');
-  // Format: pressure, emg_raw, ax, ay, az, gx, gy, gz  (8 values)
-  if (parts.length < 8) return;
-  const nums = parts.map(Number);
-  if (nums.some(isNaN)) return;
-  const [p, emgRaw, ax, ay, az, gx, gy, gz] = nums;
-  lastPressure = p;
-  const axG=ax/1000, ayG=ay/1000, azG=az/1000;
-  const gxD=gx/1000, gyD=gy/1000, gzD=gz/1000;
+  // Asignación y lógica de UI
+  pressure = p;
+  emgRaw = emg;
+  axG = ax;
+  ayG = ay;
+  azG = az;
+  gxD = gx;
+  gyD = gy;
+  gzD = gz;
 
-  // Windowed RMS
+  console.log("✅ PARSED:", pressure, emgRaw);
+
+  // ================= TU LÓGICA =================
+
+  // RMS EMG
   emgRawWindow.push(emgRaw);
   if (emgRawWindow.length > EMG_WINDOW) emgRawWindow.shift();
-  const winRMS = Math.sqrt(emgRawWindow.reduce((s,v)=>s+v*v,0)/emgRawWindow.length);
 
-  // IMU display
-  document.getElementById('v-ax').textContent = axG.toFixed(3)+' g';
-  document.getElementById('v-ay').textContent = ayG.toFixed(3)+' g';
-  document.getElementById('v-az').textContent = azG.toFixed(3)+' g';
-  document.getElementById('v-gx').textContent = gxD.toFixed(3)+' °/s';
-  document.getElementById('v-gy').textContent = gyD.toFixed(3)+' °/s';
-  document.getElementById('v-gz').textContent = gzD.toFixed(3)+' °/s';
+  const winRMS = Math.sqrt(
+    emgRawWindow.reduce((s, v) => s + v * v, 0) / emgRawWindow.length
+  );
 
-  // EMG display
+  // UI IMU
+  document.getElementById('v-ax').textContent = axG.toFixed(3) + ' g';
+  document.getElementById('v-ay').textContent = ayG.toFixed(3) + ' g';
+  document.getElementById('v-az').textContent = azG.toFixed(3) + ' g';
+  document.getElementById('v-gx').textContent = gxD.toFixed(3) + ' °/s';
+  document.getElementById('v-gy').textContent = gyD.toFixed(3) + ' °/s';
+  document.getElementById('v-gz').textContent = gzD.toFixed(3) + ' °/s';
+
+  // UI EMG
   const maxEMG = 1000;
   document.getElementById('v-emg-raw').textContent = emgRaw.toFixed(1);
   document.getElementById('v-emg-rms').textContent = winRMS.toFixed(2);
-  document.getElementById('bar-emg').style.width = Math.min(100, emgRaw/maxEMG*100)+'%';
+  document.getElementById('bar-emg').style.width =
+    Math.min(100, (emgRaw / maxEMG) * 100) + '%';
 
   // Gauge
-  if (p > allTimeMax) allTimeMax = p;
-  document.getElementById('gauge-num').textContent = p;
-  const targetFrac = (currentExercise===2 && ex1MVC) ? (ex1MVC*0.5)/allTimeMax : undefined;
-  document.getElementById('gauge-sub').textContent = isRecording ? '● recording' : `max: ${allTimeMax}`;
+  if (pressure > allTimeMax) allTimeMax = pressure;
 
-  // Ex2 in-zone indicator
-  if (currentExercise===2 && ex1MVC) {
-    const target50 = ex1MVC*0.5;
-    const inZone = p >= target50*0.9 && p <= target50*1.1;
-    const ti = document.getElementById('gauge-target-info');
-    ti.textContent = inZone ? `✓ IN ZONE (${p})` : `Target: ${target50.toFixed(0)} ± 10% (now: ${p})`;
-    ti.className = 'gauge-target-info' + (inZone?' in-zone':'');
-  }
+  document.getElementById('gauge-num').textContent = pressure.toFixed(1);
+  document.getElementById('gauge-sub').textContent =
+    isRecording ? '● recording' : `max: ${allTimeMax.toFixed(1)}`;
 
-  drawGauge(p, allTimeMax, isRecording, targetFrac);
+  const targetFrac =
+    currentExercise === 2 && ex1MVC
+      ? (ex1MVC * 0.5) / allTimeMax
+      : undefined;
+
+  drawGauge(pressure, allTimeMax, isRecording, targetFrac);
 
   // Charts
-  pressurePoints.push(p);
+  pressurePoints.push(pressure);
   if (pressurePoints.length > CHART_MAX) pressurePoints.shift();
+
   emgRawPoints.push(emgRaw);
   if (emgRawPoints.length > CHART_MAX) emgRawPoints.shift();
-  const gyroMag = Math.sqrt(gxD**2+gyD**2+gzD**2);
+
+  const gyroMag = Math.sqrt(gxD ** 2 + gyD ** 2 + gzD ** 2);
   gyroMagPoints.push(gyroMag);
   if (gyroMagPoints.length > CHART_MAX) gyroMagPoints.shift();
+
   redrawAllCharts();
 
-  // Record data
+  // API
+  sendToFastAPI({
+    pressure: pressure,
+    emg_raw: emgRaw,
+    imu: { ax: axG, ay: ayG, az: azG, gx: gxD, gy: gyD, gz: gzD }
+  });
+
+  // Recording
   if (isRecording && currentTrial < getCfg().trials) {
-    const t = (Date.now()-timerStart)/1000;
-    trialData[currentTrial].push({ t, p, emgRaw, winRMS, ax:axG, ay:ayG, az:azG, gx:gxD, gy:gyD, gz:gzD });
+    const t = (Date.now() - timerStart) / 1000;
+
+    trialData[currentTrial].push({
+      t,
+      p: pressure,
+      emgRaw,
+      winRMS,
+      ax: axG,
+      ay: ayG,
+      az: azG,
+      gx: gxD,
+      gy: gyD,
+      gz: gzD
+    });
   }
 }
+
 
 // ══════════════════════════════════════════════════════════════
 //  TRIAL LOGIC
@@ -952,6 +1082,7 @@ function startTrial() {
   const cfg = getCfg();
   if (currentTrial >= cfg.trials) return;
   isRecording = true;
+  sendToFastAPI();
   timerStart = Date.now();
   trialData[currentTrial] = [];
   pressurePoints = []; emgRawPoints = []; gyroMagPoints = [];
@@ -1548,25 +1679,6 @@ function setTimer(lbl,val,sub,mode) {
 //  NAVIGATION
 // ══════════════════════════════════════════════════════════════
 // init() is triggered by enterDashboard()
-
-
-
-
-    <!-- SCRIPT DEL WEBSOCKET -->
-    const socket = new WebSocket("ws://localhost:8000/ws");
-
-    socket.onopen = function() {
-        console.log("Connected to backend");
-    };
-
-    socket.onmessage = function(event) {
-        console.log("Server:", event.data);
-    };
-
-    function sendExerciseStart(){
-        socket.send("start_exercise");
-    }
-
 
 
 </script>

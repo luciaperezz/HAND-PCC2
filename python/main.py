@@ -104,6 +104,7 @@ def do_exercise_1_tremor(data, mvc):
 def do_exercise_2_tremor(data, mvc):
     features = feature_extraction.extract_features_ex2_tremor(data, mvc)
     feedback = rules_feedback.evaluate(features)
+
     print("EX2 Tremor feedback:", feedback)
 
 #------------------ CONDITIONS FUNCITONS-------------------------------
@@ -201,8 +202,10 @@ async def main():
                 if need_recalibration():
                     mvc = None
                     state = State.CALIBRATION
-                else:
+                elif state != None :
                     state = selected_exercise
+                else
+                    state = State.IDLE
 
 
 
