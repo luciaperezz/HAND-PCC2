@@ -1,0 +1,6 @@
+data/grabmyo/
+data/pads/
+features/
+models/
+__pycache__/
+*.pyc
