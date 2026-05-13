@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 
 # ── Configure paths here ───────────────────────────────────────────────────────
-DATA_DIR_GRABMYO = "data/grabmyo"   # ← point to your GRABMyo download
-DATA_DIR_PADS    = "data/pads"      # ← point to your PADS download
+DATA_DIR_GRABMYO = "data/grabmyo/gesture-recognition-and-biometrics-electromyogram-grabmyo-1.1.0"
+DATA_DIR_PADS    = "data/pads/pads-parkinsons-disease-smartwatch-dataset-1.0.0"
 OUTPUT_DIR       = "features"
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -108,15 +108,15 @@ def main():
 
     errors = []
 
-    # Group 1
-    try:
-        df1 = build_group1_dataset()
-        out1 = os.path.join(OUTPUT_DIR, "group1_features.csv")
-        df1.to_csv(out1, index=False)
-        print(f"\n✓ Saved Group 1 features → {out1}")
-    except FileNotFoundError as e:
-        print(f"\n[SKIP] Group 1: {e}")
-        errors.append("group1")
+  # Group 1
+    #try:
+    #    df1 = build_group1_dataset()
+    #    out1 = os.path.join(OUTPUT_DIR, "group1_features.csv")
+    #    df1.to_csv(out1, index=False)
+    #    print(f"\n✓ Saved Group 1 features → {out1}")
+    #except FileNotFoundError as e:
+    #    print(f"\n[SKIP] Group 1: {e}")
+    #    errors.append("group1")
 
     # Group 2
     try:

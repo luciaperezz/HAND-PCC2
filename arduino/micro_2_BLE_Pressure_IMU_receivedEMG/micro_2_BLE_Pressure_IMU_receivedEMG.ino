@@ -100,7 +100,7 @@ void loop() {
   //----------------------------------
   // Scale values to integers
   // (reduces payload size for BLE transmission)
-  //----------------------------------
+  //----------------------------------c:\Users\jpper\Desktop\SmartHandRehab\arduino\micro_2_BLE_Pressure_IMU_receivedEMG\micro_2_BLE_Pressure_IMU_receivedEMG.ino
   int p    = (int)(pressure * 10);
 
   int ax_i = (int)(ax * 100);

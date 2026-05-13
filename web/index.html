@@ -255,6 +255,39 @@ tbody td{padding:10px 8px;vertical-align:middle;}
 .pbadge-g1{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(200,241,53,0.2);}
 .pbadge-g2{background:rgba(53,200,241,0.1);color:var(--blue);border:1px solid rgba(53,200,241,0.2);}
 @keyframes fadeSlideIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── SETUP GUIDE PAGE ── */
+.setup-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;margin-bottom:24px;}
+.setup-step-num{display:inline-block;background:var(--accent-dim);color:var(--accent);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;letter-spacing:1px;margin-bottom:12px;}
+.setup-title{font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.setup-desc{color:var(--dim);font-size:14px;margin-bottom:28px;line-height:1.7;}
+.equipment-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;}
+.equipment-item{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:20px;text-align:center;}
+.equipment-icon{font-size:36px;margin-bottom:12px;}
+.equipment-name{font-weight:500;color:var(--text);margin-bottom:4px;}
+.equipment-detail{font-size:11px;color:var(--dim);}
+.placement-steps{display:flex;flex-direction:column;gap:20px;}
+.placement-card{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:24px;}
+.placement-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.placement-badge{font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:4px;font-weight:500;}
+.pressure-badge{background:var(--accent-dim);color:var(--accent);}
+.emg-badge{background:var(--orange-dim);color:var(--orange);}
+.imu-badge{background:var(--blue-dim);color:var(--blue);}
+.placement-header h3{font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text);margin:0;}
+.placement-instructions{list-style:none;padding:0;margin:16px 0 0 0;}
+.placement-instructions li{padding:8px 0 8px 24px;position:relative;color:var(--text);font-size:16px;line-height:1.8;}
+.placement-instructions li:before{content:'→';position:absolute;left:0;color:var(--accent);}
+.connection-steps{display:flex;flex-direction:column;gap:16px;}
+.connection-step{display:flex;gap:16px;align-items:flex-start;}
+.connection-num{width:32px;height:32px;background:var(--accent);color:var(--bg);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+.connection-content h4{font-size:14px;font-weight:500;color:var(--text);margin:0 0 4px 0;}
+.connection-content p{font-size:14px;color:var(--dim);margin:0;line-height:1.8;}
+.ready-checklist{display:flex;flex-direction:column;gap:16px;}
+.ready-item{display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:16px;}
+.ready-icon{width:28px;height:28px;background:rgba(200,241,53,0.15);color:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+.ready-text{font-size:14px;color:var(--dim);line-height:1.8;}
+.ready-text strong{color:var(--text);display:block;margin-bottom:2px;}
+
 </style>
 </head>
 <body>
@@ -309,6 +342,7 @@ tbody td{padding:10px 8px;vertical-align:middle;}
         <span id="badge-patient-id">—</span>
         <span class="pbadge-group" id="badge-group">—</span>
       </div>
+       <button class="btn btn-ghost" onclick="showSetupGuide()">📖 Setup</button>
       <button class="btn btn-blue" onclick="showHistory()">📊 History</button>
       <button class="btn btn-ghost" onclick="logout()" style="font-size:11px;">⏎ Logout</button>
     </div>
@@ -352,7 +386,7 @@ tbody td{padding:10px 8px;vertical-align:middle;}
         <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
         <div class="ctrl-row">
           <button class="btn btn-accent" id="btn-start" onclick="startTrial()" disabled>Start</button>
-          <button class="btn btn-red hidden" id="btn-stop" onclick="stopTrial()">Stop</button>
+          <button class="btn btn-red hidden" id="btn-stop" onclick="cancelTrial()">Stop</button>
           <button class="btn btn-ghost" onclick="resetSession()">Reset</button>
         </div>
         <!-- MVC Quick Calibration — shown only on Ex2 when MVC not yet set -->
@@ -361,7 +395,7 @@ tbody td{padding:10px 8px;vertical-align:middle;}
           <div style="font-size:11px;color:var(--dim);margin-bottom:10px;line-height:1.5;">No MVC recorded. Do one max squeeze to calibrate before starting Exercise 2.</div>
           <div class="ctrl-row">
             <button class="btn btn-orange" id="btn-mvc-calib" onclick="startMVCCalib()" disabled>⚡ Quick MVC (5s)</button>
-            <button class="btn btn-red hidden" id="btn-mvc-stop" onclick="stopMVCCalib()">Stop</button>
+            <button class="btn btn-red hidden" id="btn-mvc-stop" onclick="finishMVCCalib()">Stop</button>
           </div>
           <div id="mvc-calib-timer" style="text-align:center;margin-top:10px;font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--orange);display:none;"></div>
           <div id="mvc-calib-result" style="text-align:center;margin-top:8px;font-size:12px;color:var(--accent);display:none;"></div>
@@ -434,7 +468,7 @@ tbody td{padding:10px 8px;vertical-align:middle;}
           <div class="chart-canvas-wrap"><canvas id="emgChart"></canvas></div>
         </div>
         <div class="card">
-          <div class="card-title">IMU — GYRO MAGNITUDE</div>
+          <div class="card-title">IMU — ACCEL X/Y/Z</div>
           <div class="chart-canvas-wrap"><canvas id="imuChart"></canvas></div>
         </div>
       </div>
@@ -476,6 +510,208 @@ tbody td{padding:10px 8px;vertical-align:middle;}
   <div id="history-body"></div>
 </div>
 
+<!-- ═══════════════ SETUP GUIDE PAGE -->
+<div id="page-setup" class="page">
+  <div class="hdr">
+    <div>
+      <h1>Setup Guide</h1>
+      <div class="sub">Device Placement & Connection</div>
+    </div>
+    <div class="hdr-right">
+      <button class="btn btn-ghost" onclick="showMain()">← Back to Dashboard</button>
+    </div>
+  </div>
+
+  <!-- Equipment Check -->
+  <div class="setup-section">
+    <div class="setup-step-num">Step 1</div>
+    <h2 class="setup-title">Equipment Check</h2>
+    <p class="setup-desc">Make sure you have all components ready before starting.</p>
+    
+    <div class="equipment-grid">
+      <div class="equipment-item">
+        <div class="equipment-icon">🔘</div>
+        <div class="equipment-name">Pressure Sensor</div>
+        <div class="equipment-detail">FSR force-sensitive resistor</div>
+      </div>
+      <div class="equipment-item">
+        <div class="equipment-icon">⚡</div>
+        <div class="equipment-name">EMG Electrodes</div>
+        <div class="equipment-detail">2 surface electrodes + ground</div>
+      </div>
+      <div class="equipment-item">
+        <div class="equipment-icon">📐</div>
+        <div class="equipment-name">IMU Sensor</div>
+        <div class="equipment-detail">MPU-6050 accelerometer/gyro</div>
+      </div>
+      <div class="equipment-item">
+        <div class="equipment-icon">📡</div>
+        <div class="equipment-name">Arduino Nano 33</div>
+        <div class="equipment-detail">BLE microcontroller</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sensor Placement -->
+  <div class="setup-section">
+    <div class="setup-step-num">Step 2</div>
+    <h2 class="setup-title">Sensor Placement</h2>
+    <p class="setup-desc">Correct placement is crucial for accurate measurements.</p>
+    
+    <div class="placement-steps">
+
+      <!-- Pressure Sensor -->
+      <div class="placement-card">
+        <div class="placement-header">
+          <div class="placement-badge pressure-badge">Pressure</div>
+          <h3>Force Sensor in Palm</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+        <div>
+          <img src="images/pressure-sensor-setup.png" 
+              alt="Hand squeezing bottle with pressure sensor" 
+              style="width: 100%; 
+                      height: auto; 
+                      max-height: 300px;
+                      object-fit: contain; 
+                      border-radius: 8px; 
+                      background: white; 
+                      padding: 20px;">
+        </div>
+        <ul class="placement-instructions">
+          <li>Place FSR in center of palm</li>
+          <li>Sensor should face inward (smooth side toward skin)</li>
+          <li>Secure with medical tape if needed</li>
+          <li>Test: squeeze gently - you should see pressure values change</li>
+        </ul>
+      </div>
+
+      <!-- EMG -->
+      <div class="placement-card">
+        <div class="placement-header">
+          <div class="placement-badge emg-badge">EMG</div>
+          <h3>Muscle Electrodes on Forearm</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+        <div>
+          <img src="images/EMG-sensor-setup.png" 
+              alt="Hand squeezing bottle with pressure sensor" 
+              style="width: 100%; 
+                      height: auto; 
+                      max-height: 300px;
+                      object-fit: contain; 
+                      border-radius: 8px; 
+                      background: white; 
+                      padding: 20px;">
+        </div>
+        <ul class="placement-instructions">
+          <li><strong>Electrode 1:</strong> Flexor digitorum superficialis (upper forearm)</li>
+          <li><strong>Electrode 2:</strong> 2-3 cm below first electrode</li>
+          <li><strong>Ground:</strong> Bony prominence (wrist or elbow)</li>
+          <li>Clean skin with alcohol wipe before applying</li>
+          <li>Test: clench fist - EMG values should spike</li>
+        </ul>
+      </div>
+
+      <!-- IMU -->
+      <div class="placement-card">
+        <div class="placement-header">
+          <div class="placement-badge imu-badge">IMU</div>
+          <h3>Motion Sensor on Hand</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+        <div class="placement-image-placeholder" style="background: linear-gradient(135deg, var(--blue-dim) 0%, var(--surface) 100%); height: 200px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 48px;">
+          🤚
+        </div>
+        <ul class="placement-instructions">
+          <li>Attach to back of hand (between knuckles and wrist)</li>
+          <li><strong>Orientation:</strong> X-axis along fingers, Y-axis up/down, Z-axis side-to-side</li>
+          <li>Secure firmly - movement will cause incorrect readings</li>
+          <li>Test: rotate hand - you should see gyro values change</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connection -->
+  <div class="setup-section">
+    <div class="setup-step-num">Step 3</div>
+    <h2 class="setup-title">Connect Device</h2>
+    <p class="setup-desc">Establish Bluetooth connection with the sensor system.</p>
+    
+    <div class="connection-steps">
+      <div class="connection-step">
+        <div class="connection-num">1</div>
+        <div class="connection-content">
+          <h4>Power On</h4>
+          <p>Ensure Arduino Nano 33 is powered (via USB or battery). Look for LED indicator.</p>
+        </div>
+      </div>
+      <div class="connection-step">
+        <div class="connection-num">2</div>
+        <div class="connection-content">
+          <h4>Click "Connect BLE"</h4>
+          <p>On the dashboard, click the yellow "Connect BLE" button in the top-left.</p>
+        </div>
+      </div>
+      <div class="connection-step">
+        <div class="connection-num">3</div>
+        <div class="connection-content">
+          <h4>Select "SensorNode"</h4>
+          <p>Browser will show available devices. Select "SensorNode" from the list.</p>
+        </div>
+      </div>
+      <div class="connection-step">
+        <div class="connection-num">4</div>
+        <div class="connection-content">
+          <h4>Verify Connection</h4>
+          <p>Green dot appears next to "Connected (Server)". Live sensor values should update.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ready to Start -->
+  <div class="setup-section">
+    <div class="setup-step-num">Step 4</div>
+    <h2 class="setup-title">Ready to Start</h2>
+    <p class="setup-desc">Final checks before beginning exercises.</p>
+    
+    <div class="ready-checklist">
+      <div class="ready-item">
+        <div class="ready-icon">✓</div>
+        <div class="ready-text">
+          <strong>Comfortable Seating:</strong> Sit upright with forearm resting on table, elbow at 90°
+        </div>
+      </div>
+      <div class="ready-item">
+        <div class="ready-icon">✓</div>
+        <div class="ready-text">
+          <strong>Sensor Check:</strong> All live values updating (pressure, EMG, IMU)
+        </div>
+      </div>
+      <div class="ready-item">
+        <div class="ready-icon">✓</div>
+        <div class="ready-text">
+          <strong>Rest Hand:</strong> Start with hand relaxed - baseline readings should be near zero
+        </div>
+      </div>
+      <div class="ready-item">
+        <div class="ready-icon">✓</div>
+        <div class="ready-text">
+          <strong>Focus:</strong> Minimize movement between trials for consistent measurements
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px;">
+      <button class="btn btn-accent" onclick="showMain()" style="font-size: 15px; padding: 14px 32px;">
+        ✓ I'm Ready — Go to Dashboard
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 //  LOGIN
@@ -505,6 +741,7 @@ function enterDashboard() {
   ex1MVC = null;
   currentExercise = 1;
   buildExerciseUI();
+  
 }
 function logout() {
   selectedGroup = null;
@@ -649,8 +886,23 @@ let ex1MVC = null;  // best MVC from exercise 1, used as target for ex2
 // ══════════════════════════════════════════════════════════════
 function switchExercise(n) {
   if (isRecording || isResting) return;
+  
   currentExercise = n;
+  currentTrial = 0;
   buildExerciseUI();
+  
+  if (ws && ws.readyState === 1) {
+    const cfg = getCfg();  
+    
+    ws.send(JSON.stringify({
+      type: "change_exercise",
+      exercise: n,
+      record_secs: cfg.recordSecs,  // ← ¿Y ESTO?
+      rest_secs: cfg.restSecs,
+      trials: cfg.trials
+    }));
+    console.log("📤 Change exercise enviado:", n, cfg);
+  }
 }
 
 function buildExerciseUI() {
@@ -718,7 +970,7 @@ function buildExerciseUI() {
     calibWrap.style.display = 'none';
   }
 
-  resetSession(false);
+  resetSession(true);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -827,6 +1079,41 @@ function drawLineChart(canvasId, points, color, targetY) {
   ctx.fillStyle = g; ctx.fill();
 }
 
+function drawMultiLineChart(canvasId, datasets) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 400, H = 90;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+  
+  // Encontrar min/max global
+  let allValues = [];
+  datasets.forEach(d => allValues.push(...d.points));
+  if (allValues.length < 2) return;
+  
+  const maxVal = Math.max(...allValues, 1);
+  const minVal = Math.min(...allValues, -1);
+  const range = maxVal - minVal || 1;
+  const step = W / (CHART_MAX-1);
+  
+  // Dibujar cada dataset
+  datasets.forEach(dataset => {
+    const {points, color, label} = dataset;
+    
+    // Línea
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    points.forEach((val, i) => {
+      const x = i * step;
+      const y = H - ((val - minVal) / range) * (H - 6) - 3;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+}
+
 function redrawAllCharts() {
   const cfg = getCfg();
   let targetP;
@@ -834,7 +1121,11 @@ function redrawAllCharts() {
   const pColor = isRecording ? (currentExercise===1?'#f13567':'#35c8f1') : '#c8f135';
   drawLineChart('pressureChart', pressurePoints, pColor, targetP);
   drawLineChart('emgChart', emgRawPoints, '#f18035');
-  drawLineChart('imuChart', gyroMagPoints, '#35c8f1');
+  drawMultiLineChart('imuChart', [
+    {points: accelXPoints, color: '#f13567', label: 'X'},
+    {points: accelYPoints, color: '#9d00ff', label: 'Y'},
+    {points: accelZPoints, color: '#2cff05', label: 'Z'}
+  ]);
 }
 
 
@@ -845,18 +1136,26 @@ function redrawAllCharts() {
 let ws = null;
 
 function sendToFastAPI(sensorData) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (!ws || ws.readyState !== 1) {
+    console.error("⚠️ WebSocket no disponible - frames no se envían al backend");
+    return;
+  }
   
-  const data = {
-    timestamp: Date.now(),
-    user_id: patientSession.id || "unknown",
-    exercise: currentExercise === 1 ? "ex1" : "ex2",
-    trial: currentTrial + 1,
-    status: isRecording ? "recording" : isResting ? "resting" : "ready",
-    sensor_data: sensorData || {pressure: 0, emg_raw: 0, imu: {ax:0,ay:0,az:0,gx:0,gy:0,gz:0}}  // ← SIEMPRE envía
+  // Formato que main.py espera
+  const frame = {
+    type: "sensor_frame",
+    timestamp: new Date().toISOString(),
+    pressure: sensorData.pressure || 0,
+    emg_raw: sensorData.emg_raw || 0,
+    ax: sensorData.imu?.ax || 0,
+    ay: sensorData.imu?.ay || 0,
+    az: sensorData.imu?.az || 0,
+    gx: sensorData.imu?.gx || 0,
+    gy: sensorData.imu?.gy || 0,
+    gz: sensorData.imu?.gz || 0,
   };
   
-  ws.send(JSON.stringify(data));
+  ws.send(JSON.stringify(frame));
 }
 
 
@@ -889,44 +1188,112 @@ async function connectBLE() {
   } catch(e) { status.textContent='Error: '+e.message; }
 
   if (!ws) {
-  ws = new WebSocket("ws://127.0.0.1:8000/ws");
-  ws.onopen = () => console.log("✅ WS connected");
-  //ws.onmessage = (e) => console.log("Server:", e.data);
-  ws.onmessage = (e) => {
-    console.log("Server:", e.data);
-    try {
-      const msg = JSON.parse(e.data);
-      if (msg.data && msg.data.sensor_data) {
-        const data = msg.data.sensor_data;
-        
-        // ✅ ACTUALIZA LA INTERFAZ AQUÍ
-        document.getElementById('gauge-num').textContent = data.pressure?.toFixed(1) || '0';
-        document.getElementById('v-emg-raw').textContent = data.emg_raw?.toFixed(1) || '0';
-        document.getElementById('v-emg-rms').textContent = data.emg_rms?.toFixed(2) || '0';
-        
-        // IMU
-        document.getElementById('v-ax').textContent = (data.imu?.ax || 0).toFixed(3) + ' g';
-        document.getElementById('v-ay').textContent = (data.imu?.ay || 0).toFixed(3) + ' g';
-        document.getElementById('v-az').textContent = (data.imu?.az || 0).toFixed(3) + ' g';
-        document.getElementById('v-gx').textContent = (data.imu?.gx || 0).toFixed(3) + ' °/s';
-        document.getElementById('v-gy').textContent = (data.imu?.gy || 0).toFixed(3) + ' °/s';
-        document.getElementById('v-gz').textContent = (data.imu?.gz || 0).toFixed(3) + ' °/s';
-        
-        // Barra EMG
-        const emgBar = document.getElementById('bar-emg');
-        if (emgBar) emgBar.style.width = Math.min(100, (data.emg_raw || 0)/1000*100) + '%';
-        
-        console.log("✅ Datos servidor OK - EMG:", data.emg_raw, "IMU:", data.imu);
+    // ✅ NUEVA CONEXIÓN - Recibe datos de api_improved.py
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      console.log("✅ WebSocket connected:", wsUrl);
+      console.log("📋 Current patientSession:", patientSession);
+      document.getElementById('ble-status').textContent = 'Connected (Server)';
+      connected = true;
+      document.getElementById('btn-start').disabled = false;
+      
+      // ✨ IMPORTANTE: Si ya hay una sesión activa, enviar login
+      if (patientSession && patientSession.id) {
+        console.log("🔄 Enviando login desde ws.onopen...");
+        ws.send(JSON.stringify({
+          type: "login",
+          patient_id: patientSession.id,
+          group: patientSession.group || selectedGroup
+        }));
+        console.log("📤 Login reenviado tras conexión WebSocket");
+      } else {
+        console.log("⚠️ No hay patientSession al conectar WebSocket");
       }
-    } catch(err) {
-      console.error("JSON error:", err);
-    }
-  };
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📥 Datos desde server:", data);
+
+        // Capture FSM errors 
+        if (data.type === 'error') {
+          // Mostrar error visual al usuario
+          alert(`⚠️ Action not allowed\n\n${data.message || 'Invalid state transition'}`);
+          console.error("❌ FSM Error:", data);
+          return;
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // SENSOR FRAME (datos en vivo del BLE - no se usan en Opción A)
+        // ═══════════════════════════════════════════════════════════
+        if (data.type === 'sensor_frame') {
+          // En Opción A, el navegador ya tiene los datos de BLE directo
+          // Este bloque puede eliminarse o dejarlo por compatibilidad
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // TRIAL COMPLETE (resultado procesado por main.py)
+        // ═══════════════════════════════════════════════════════════
+        else if (data.type === 'trial_complete') {
+          console.log("✅ Trial completado por main.py:", data);
+          
+          // Mostrar features en la UI
+          const features = data.features || {};
+          console.log("Features extraídas:", features);
+          
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // LOGIN SUCCESS
+        // ═══════════════════════════════════════════════════════════
+        else if (data.type === 'login_success') {
+          console.log("✅ Login confirmado por main.py");
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // TRIAL STARTED
+        // ═══════════════════════════════════════════════════════════
+        else if (data.type === 'trial_started') {
+          console.log("✅ Trial iniciado por main.py");
+        }
+
+        else if (data.type == 'exercise_complete') {
+          const exercise = data.exercise;
+          alert(`🏁 Exercise ${exercise} Complete!\n\n` +
+              `✅ ${data.total_trials} trials finished\n\n` +
+              `You can now:\n` +
+              `• Switch to next exercise\n` +
+              `• Finish session`);
+        }
+        
+      } catch (err) {
+        console.error("❌ Error parseando datos:", err);
+      }
+    };
+    
+    ws.onerror = (event) => {
+      console.error("❌ WebSocket error:", event);
+      document.getElementById('ble-status').textContent = 'Server Error';
+    };
+    
+    ws.onclose = () => {
+      console.log("❌ WebSocket disconnected");
+      document.getElementById('ble-status').textContent = 'Disconnected';
+      connected = false;
+      document.getElementById('btn-start').disabled = true;
+      ws = null;
+      // Intentar reconectar en 3 segundos
+      setTimeout(connectBLE, 3000);
+    };
   }
 }
 
 // ================= BUFFER BLE =================
-
 // ================= VARIABLES =================
 const EMG_WINDOW = 50;
 let emgRawWindow = [];
@@ -934,71 +1301,123 @@ let emgRawWindow = [];
 let pressure = 0, emgRaw = 0;
 let axG = 0, ayG = 0, azG = 0;
 let gxD = 0, gyD = 0, gzD = 0;
+let lastPressure = 0;
+// -----------------------------
+// Robust BLE Frame Parser
+// -----------------------------
+let frameBuffer = {};                 // Frames parciales por frame_id
+const MAX_FRAMES = 50;                // Máximo frames guardados para evitar memory leak
+const FRAME_TIMEOUT = 200;            // ms: si un frame tarda demasiado, se descarta
 
-// ================= BLE DATA =================
-let frameBuffer = { S: null, A: null, G: null };
+let buffer = "";
 
 function onData(e) {
-  const chunk = new TextDecoder().decode(e.target.value);
-  lineBuffer += chunk;
-  const lines = lineBuffer.split(/\r?\n/);
-  lineBuffer = lines.pop();
+  // Añadir datos recibidos al buffer
+  buffer += new TextDecoder().decode(e.target.value);
+  
+  // Safety: limitar tamaño del buffer
+  if (buffer.length > 10000) {
+    buffer = buffer.slice(-5000);
+    console.warn("⚠️ Buffer overflow, limpiando...");
+  }
 
-  lines.forEach((line) => {
-    line = line.trim();
-    if (!line) return;
-
-    const parts = line.split(',').map(x => x.trim());
-    const header = parts.shift(); // 'S', 'A', 'G'
-
-    const nums = parts.map(Number);
-    if (nums.some(isNaN)) return;
-
-    frameBuffer[header] = nums;
-
-    // 🔹 Si tenemos los 3 paquetes → full frame
-    if (frameBuffer.S && frameBuffer.A && frameBuffer.G) {
-      const fullPacket = [
-        ...frameBuffer.S,    // p, emg
-        ...frameBuffer.A,    // ax, ay, az
-        ...frameBuffer.G     // gx, gy, gz
-      ];
-      parseLine(fullPacket);
-
-      // Reset buffer para el próximo frame
-      frameBuffer = { S: null, A: null, G: null };
+  // Procesar frames completos (terminan con \n)
+  let newlineIdx;
+  while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+    // Extraer todo hasta el \n
+    const segment = buffer.slice(0, newlineIdx).trim();
+    buffer = buffer.slice(newlineIdx + 1);
+    
+    // Buscar TODOS los frames "F," en este segmento
+    // (pueden venir múltiples frames sin \n entre ellos)
+    const frames = segment.split(/(?=F,)/); // Split manteniendo "F,"
+    
+    for (const frame of frames) {
+      if (frame.startsWith("F,")) {
+        parseFrame(frame);
+      }
     }
-  });
+  }
 }
 
 // ================= PARSER =================
-function parseLine(nums) {
-  let [p, emg, ax, ay, az, gx, gy, gz] = nums;
+function parseFrame(frame) {
+  if (frame.startsWith("$")) frame = frame.substring(1);
+  const parts = frame.split(',');
+  
+  // PRODUCCIÓN: Solo aceptar frames completos de 10 campos
+  if (parts.length !== 10) {
+    console.error("❌ FRAME INVÁLIDO:", parts.length, "campos (esperaba 10)");
+    console.error("   Contenido:", parts);
+    console.error("   → Verifica que el Arduino envíe: F,id,pressure,emg,ax,ay,az,gx,gy,gz");
+    return;
+  }
+  
+  const [
+    header,
+    frame_id,
+    pressureVal,
+    emgVal,
+    ax, ay, az,
+    gx, gy, gz
+  ] = parts;
+  
+  if (header !== "F") {
+    console.error("❌ Header incorrecto:", header, "(esperaba 'F')");
+    return;
+  }
+  
+  const nums = [
+    Number(frame_id),
+    Number(pressureVal),
+    Number(emgVal),
+    Number(ax),
+    Number(ay),
+    Number(az),
+    Number(gx),
+    Number(gy),
+    Number(gz)
+  ];
 
-  // Desescalar
-  p   = p / 10;
-  ax  = ax / 100;
-  ay  = ay / 100;
-  az  = az / 100;
-  gx  = gx / 100;
-  gy  = gy / 100;
-  gz  = gz / 100;
+  if (nums.some(isNaN)) {
+    console.warn("❌ Valores inválidos:", nums);
+    return;
+  }
+  // 🔥 AQUÍ ESTABA TU BUG GRANDE
+  const data = {
+    frame_id: nums[0],
+    pressure: nums[1],
+    emg_raw: nums[2],
+    imu: {
+      ax: nums[3],
+      ay: nums[4],
+      az: nums[5],
+      gx: nums[6],
+      gy: nums[7],
+      gz: nums[8]
+    }
+  };
 
-  // Asignación y lógica de UI
-  pressure = p;
-  emgRaw = emg;
-  axG = ax;
-  ayG = ay;
-  azG = az;
-  gxD = gx;
-  gyD = gy;
-  gzD = gz;
+  // console.log("✅ FRAME PARSEADO:", data); // SILENCED FOR PRODUCTION
 
-  console.log("✅ PARSED:", pressure, emgRaw);
+  // 👉 ACTUALIZA VARIABLES GLOBALES (antes NO lo hacías)
+  pressure = data.pressure;
+  emgRaw = data.emg_raw;
 
-  // ================= TU LÓGICA =================
+  axG = data.imu.ax;
+  ayG = data.imu.ay;
+  azG = data.imu.az;
 
-  // RMS EMG
+  gxD = data.imu.gx;
+  gyD = data.imu.gy;
+  gzD = data.imu.gz;
+
+  processData();
+}
+
+function processData() {
+
+  // ================= RMS EMG =================
   emgRawWindow.push(emgRaw);
   if (emgRawWindow.length > EMG_WINDOW) emgRawWindow.shift();
 
@@ -1006,32 +1425,29 @@ function parseLine(nums) {
     emgRawWindow.reduce((s, v) => s + v * v, 0) / emgRawWindow.length
   );
 
-  // UI IMU
-  document.getElementById('v-ax').textContent = axG.toFixed(3) + ' g';
-  document.getElementById('v-ay').textContent = ayG.toFixed(3) + ' g';
-  document.getElementById('v-az').textContent = azG.toFixed(3) + ' g';
-  document.getElementById('v-gx').textContent = gxD.toFixed(3) + ' °/s';
-  document.getElementById('v-gy').textContent = gyD.toFixed(3) + ' °/s';
-  document.getElementById('v-gz').textContent = gzD.toFixed(3) + ' °/s';
+  // console.log("🔹 RMS EMG:", winRMS); // SILENCED FOR PRODUCTION
 
-  // UI EMG
-  const maxEMG = 1000;
-  document.getElementById('v-emg-raw').textContent = emgRaw.toFixed(1);
+  // ✅ Update live EMG values
+  document.getElementById('v-emg-raw').textContent = emgRaw.toFixed(0);
   document.getElementById('v-emg-rms').textContent = winRMS.toFixed(2);
-  document.getElementById('bar-emg').style.width =
-    Math.min(100, (emgRaw / maxEMG) * 100) + '%';
+
+  // ✅ Update live IMU values
+  document.getElementById('v-ax').textContent = axG.toFixed(2);
+  document.getElementById('v-ay').textContent = ayG.toFixed(2);
+  document.getElementById('v-az').textContent = azG.toFixed(2);
+  document.getElementById('v-gx').textContent = gxD.toFixed(1);
+  document.getElementById('v-gy').textContent = gyD.toFixed(1);
+  document.getElementById('v-gz').textContent = gzD.toFixed(1);
 
   // Gauge
   if (pressure > allTimeMax) allTimeMax = pressure;
 
   document.getElementById('gauge-num').textContent = pressure.toFixed(1);
-  document.getElementById('gauge-sub').textContent =
-    isRecording ? '● recording' : `max: ${allTimeMax.toFixed(1)}`;
 
   const targetFrac =
-    currentExercise === 2 && ex1MVC
-      ? (ex1MVC * 0.5) / allTimeMax
-      : undefined;
+  currentExercise === 2 && ex1MVC
+    ? (ex1MVC * 0.5) / allTimeMax
+    : undefined;
 
   drawGauge(pressure, allTimeMax, isRecording, targetFrac);
 
@@ -1042,28 +1458,29 @@ function parseLine(nums) {
   emgRawPoints.push(emgRaw);
   if (emgRawPoints.length > CHART_MAX) emgRawPoints.shift();
 
-  const gyroMag = Math.sqrt(gxD ** 2 + gyD ** 2 + gzD ** 2);
-  gyroMagPoints.push(gyroMag);
-  if (gyroMagPoints.length > CHART_MAX) gyroMagPoints.shift();
+  accelXPoints.push(axG);
+  accelYPoints.push(ayG);
+  accelZPoints.push(azG);
+  if (accelXPoints.length > CHART_MAX) accelXPoints.shift();
+  if (accelYPoints.length > CHART_MAX) accelYPoints.shift();
+  if (accelZPoints.length > CHART_MAX) accelZPoints.shift();
 
   redrawAllCharts();
 
   // API
   sendToFastAPI({
-    pressure: pressure,
+    pressure,
     emg_raw: emgRaw,
     imu: { ax: axG, ay: ayG, az: azG, gx: gxD, gy: gyD, gz: gzD }
   });
 
-  // Recording
-  if (isRecording && currentTrial < getCfg().trials) {
+    if (isRecording && currentTrial < getCfg().trials) {
     const t = (Date.now() - timerStart) / 1000;
-
     trialData[currentTrial].push({
-      t,
+      t: t,
       p: pressure,
-      emgRaw,
-      winRMS,
+      emgRaw: emgRaw,
+      winRMS: winRMS,
       ax: axG,
       ay: ayG,
       az: azG,
@@ -1072,6 +1489,10 @@ function parseLine(nums) {
       gz: gzD
     });
   }
+
+  lastPressure = pressure;
+
+
 }
 
 
@@ -1081,11 +1502,16 @@ function parseLine(nums) {
 function startTrial() {
   const cfg = getCfg();
   if (currentTrial >= cfg.trials) return;
+  if (isRecording) {
+    console.log("⚠️ Ya está grabando, ignorando click adicional");
+    return; // Ya está grabando, ignorar
+  }
+  
   isRecording = true;
-  sendToFastAPI();
   timerStart = Date.now();
   trialData[currentTrial] = [];
-  pressurePoints = []; emgRawPoints = []; gyroMagPoints = [];
+  pressurePoints = []; emgRawPoints = []; 
+  let accelXPoints = [], accelYPoints = [], accelZPoints = [];
 
   document.getElementById('btn-start').classList.add('hidden');
   document.getElementById('btn-stop').classList.remove('hidden');
@@ -1095,6 +1521,17 @@ function startTrial() {
 
   highlightTrials();
   clearInterval(timerInterval);
+  
+  // ✨ NUEVO: Enviar comando start_trial a main.py
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({
+      type: "start_trial",
+      exercise: currentExercise,
+      trial: currentTrial
+    }));
+    console.log("📤 Start trial enviado a main.py");
+  }
+  
   const durSecs = cfg.recordSecs;
 
   timerInterval = setInterval(() => {
@@ -1111,14 +1548,23 @@ function startTrial() {
 
 function stopTrial() {
   if (!isRecording) return;
+
+  //Clear the state 
   clearInterval(timerInterval);
   isRecording = false;
+
+  //Update UI
   document.getElementById('imu-rec-lbl').textContent = 'LIVE IMU';
   document.getElementById('emg-rec-lbl').textContent = 'LIVE EMG';
   document.getElementById('btn-stop').classList.add('hidden');
+  document.getElementById('btn-start').classList.remove('hidden');
+  
+  console.log("🔹 stopTrial() - currentTrial:", currentTrial);
 
   computeAndDisplay(currentTrial);
-  exportTrialCSV(currentTrial);
+  
+  
+  //exportTrialCSV(currentTrial);
   const cfg = getCfg();
   document.getElementById(`t-check-${currentTrial}`).textContent = '✓';
   document.getElementById(`trial-item-${currentTrial}`).className = 'trial-item '+cfg.doneClass;
@@ -1134,17 +1580,58 @@ function stopTrial() {
     document.getElementById('btn-start').disabled = true;
     computeSummary();
     saveSession();
-    // After ex1 complete, capture MVC and unlock ex2
+    
     if (currentExercise===1) {
       let bestMVC=0;
       trialResults.filter(Boolean).forEach(r=>{ if(r.mvc>bestMVC) bestMVC=r.mvc; });
       ex1MVC = bestMVC;
-      buildExerciseUI(); // refresh tab labels and MVC display
+      //buildExerciseUI();
     }
-  } else {
-    startRest();
-  }
+  } 
+
+    // ✅ AÑADE ESTE LOG AQUÍ:
+  console.log("🔹 JUSTO ANTES de startRest():");
+  console.log("   trialResults:", trialResults);
+  console.log("   completedTrials:", trialResults.filter(Boolean).length);
+  
+  startRest();
+
 }
+
+function cancelTrial() {
+  if (!isRecording) return;
+  
+  console.log("⏹️ Trial cancelled manually");
+  
+  // Enviar al servidor
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "stop_trial" }));
+  }
+  
+  // Limpiar UI
+  clearInterval(timerInterval);
+  isRecording = false;
+  document.getElementById('imu-rec-lbl').textContent = 'LIVE IMU';
+  document.getElementById('emg-rec-lbl').textContent = 'LIVE EMG';
+  document.getElementById('btn-stop').classList.add('hidden');
+  document.getElementById('btn-start').classList.remove('hidden');
+  
+  // Volver a READY (NO incrementar currentTrial)
+  const cfg = getCfg();
+  setTimer('READY', 'GO!', `Repeat trial ${currentTrial+1}`, '');
+  document.getElementById('prog-fill').style.width = `${(currentTrial/cfg.trials)*100}%`;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-start').textContent = cfg.btnLabel;
+  
+  // Resetear gráficos
+  pressurePoints = [];
+  emgRawPoints = [];
+    accelXPoints = []; accelYPoints = []; accelZPoints = []; 
+  redrawAllCharts();
+}
+
+
+
 
 // ══════════════════════════════════════════════════════════════
 //  CSV EXPORT
@@ -1188,28 +1675,52 @@ function exportTrialCSV(trialIdx) {
 }
 
 function startRest() {
-  const cfg = getCfg();
-  isResting = true;
-  let remaining = cfg.restSecs * 10;
-  document.getElementById('btn-start').disabled = true;
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    remaining--;
-    const secs = remaining/10;
-    if (secs <= 0) {
-      clearInterval(timerInterval); isResting = false;
-      const bs = document.getElementById('btn-start');
-      bs.disabled = false;
-      bs.classList.remove('hidden');
-      setTimer('READY', 'GO!', `Start trial ${currentTrial+1}`);
-      if (currentTrial < cfg.trials) {
-        document.getElementById(`trial-item-${currentTrial}`).className = 'trial-item '+cfg.activeClass;
+    const cfg = getCfg();
+    isResting = true;
+    let remaining = cfg.restSecs * 10;
+    
+    document.getElementById('btn-start').disabled = true;
+    
+    // ✅ CAMBIO: Contar trials completados en lugar de usar currentTrial
+    const completedTrials = trialResults.filter(Boolean).length;
+    const isComplete = (completedTrials >= cfg.trials);
+    
+    console.log(`🔍 REST: completed=${completedTrials}, total=${cfg.trials}, isComplete=${isComplete}`);
+    
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      remaining--;
+      const secs = remaining / 10;
+      
+      if (remaining <= 0) {
+        clearInterval(timerInterval); 
+        isResting = false;
+        const bs = document.getElementById('btn-start');
+        
+        if (isComplete) {
+            bs.disabled = true;
+            setTimer('COMPLETE', '✓', 'Exercise finished', 'done-clr');
+        } else {
+            bs.disabled = false;
+            bs.classList.remove('hidden');
+            setTimer('READY', 'GO!', `Start trial ${currentTrial+1}`);
+            if (currentTrial < cfg.trials) {
+              document.getElementById(`trial-item-${currentTrial}`).className = 'trial-item '+cfg.activeClass;
+            }
+            bs.textContent = cfg.btnLabel;
+        }
+        return;
       }
-    } else {
-      setTimer('REST', Math.ceil(secs)+'s', `Next: trial ${currentTrial+1}`, cfg.timerRestClass);
-      document.getElementById('prog-fill').style.width = (currentTrial/cfg.trials*100)+'%';
-    }
-  }, 100);
+      
+      // Actualizar countdown
+      if (isComplete) {
+        setTimer('COMPLETE', Math.ceil(secs)+'s', 'Resting before next exercise', 'done-clr');
+      } else {
+        setTimer('REST', Math.ceil(secs)+'s', `Next: trial ${currentTrial+1}`, cfg.timerRestClass);
+      }
+      
+      document.getElementById('prog-fill').style.width = (completedTrials/cfg.trials*100)+'%';
+    }, 100);
 }
 
 function highlightTrials() {
@@ -1236,7 +1747,9 @@ function computeAndDisplay(idx) {
   else if (g===1 && currentExercise===2) result = computeG1Ex2(data);
   else if (g===2 && currentExercise===1) result = computeG2Ex1(data);
   else if (g===2 && currentExercise===2) result = computeG2Ex2(data);
+
   trialResults[idx] = result;
+  console.log(`✅ Trial ${idx} guardado:`, result);
 
   // Update trial list sub-value
   const tv = document.getElementById(`t-val-${idx}`);
@@ -1269,6 +1782,11 @@ function computeG1Ex1(data) {
 }
 
 function computeG1Ex2(data) {
+  console.log("🔹 computeG1Ex2() - data:", data);
+  console.log("   typeof:", typeof data);
+  console.log("   isArray:", Array.isArray(data));
+  console.log("   length:", data?.length);
+  
   const target = ex1MVC ? ex1MVC*0.5 : 0;
   const pressures = data.map(d=>d.p);
   const n = pressures.length;
@@ -1453,9 +1971,21 @@ function clearAllHistory() {
 // ══════════════════════════════════════════════════════════════
 function showHistory() {
   document.getElementById('page-main').classList.remove('active');
+  document.getElementById('page-setup').classList.remove('active');
   document.getElementById('page-history').classList.add('active');
   renderHistory();
 }
+
+// ══════════════════════════════════════════════════════════════
+//  SETUP PAGE
+// ══════════════════════════════════════════════════════════════
+  function showSetupGuide() {
+    document.getElementById('page-login').classList.remove('active');
+    document.getElementById('page-main').classList.remove('active');
+    document.getElementById('page-history').classList.remove('active');
+    document.getElementById('page-setup').classList.add('active'); 
+  }
+
 // ══════════════════════════════════════════════════════════════
 //  MVC QUICK CALIBRATION
 // ══════════════════════════════════════════════════════════════
@@ -1479,6 +2009,17 @@ function startMVCCalib() {
   btnCalib.classList.add('hidden');
   btnStop.classList.remove('hidden');
 
+    //send start_trial to server FSM
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({
+      type: "start_trial",
+      exercise: currentExercise,
+      trial: 0,  // MVC calibration es trial especial
+      is_mvc: true
+    }));
+    console.log("📤 Start MVC calibration enviado");
+  }
+  
   const start = Date.now();
   mvcCalibInterval = setInterval(() => {
     const elapsed   = (Date.now() - start) / 1000;
@@ -1494,10 +2035,6 @@ function startMVCCalib() {
       finishMVCCalib();
     }
   }, 100);
-}
-
-function stopMVCCalib() {
-  finishMVCCalib();
 }
 
 function finishMVCCalib() {
@@ -1537,6 +2074,8 @@ function finishMVCCalib() {
 }
 
 function showMain() {
+  document.getElementById('page-login').classList.remove('active');
+  document.getElementById('page-setup').classList.remove('active');
   document.getElementById('page-history').classList.remove('active');
   document.getElementById('page-main').classList.add('active');
 }
@@ -1586,28 +2125,49 @@ function renderHistory() {
 //  RESET / INIT
 // ══════════════════════════════════════════════════════════════
 function resetSession(full=true) {
+
+  console.log("🔹 WebSocket state:", ws ? ws.readyState : "null");
+
+  if (ws && ws.readyState === 1) {
+    const msg = {
+      type: "reset_exercise",
+      exercise: currentExercise
+    };
+    console.log("📤 Enviando:", JSON.stringify(msg));
+    ws.send(JSON.stringify(msg));
+  }
+
   clearInterval(timerInterval);
   isRecording = isResting = false;
-  currentTrial = 0;
-  const cfg = getCfg();
-  trialData    = Array.from({length:cfg.trials},()=>[]);
-  trialResults = Array(cfg.trials).fill(null);
-  pressurePoints=[]; emgRawPoints=[]; gyroMagPoints=[];
+  
+  if (full) {
+    // Solo resetear trials cuando full=true
+    currentTrial = 0;
+    const cfg = getCfg();
+    trialData    = Array.from({length:cfg.trials},()=>[]);
+    trialResults = Array(cfg.trials).fill(null);
+  }
+  
+  // Resto del código (UI, botones, etc.) siempre se resetea
+  pressurePoints=[]; emgRawPoints=[]; 
   emgRawWindow = [];
+  accelXPoints=[]; accelYPoints=[]; accelZPoints=[];
   allTimeMax = 100;
 
   const btnStart = document.getElementById('btn-start');
   btnStart.classList.remove('hidden');
   document.getElementById('btn-stop').classList.add('hidden');
-  // Don't override disabled/text if buildExerciseUI already set MVC warning
+  
   if (!btnStart.textContent.startsWith('⚠')) {
     btnStart.disabled = !connected;
   }
+  
   document.getElementById('imu-rec-lbl').textContent='LIVE IMU';
   document.getElementById('emg-rec-lbl').textContent='LIVE EMG';
   document.getElementById('session-complete').style.display='none';
   document.getElementById('gauge-num').textContent='—';
   document.getElementById('gauge-sub').textContent='waiting for data…';
+  
   const canvas=document.getElementById('gaugeCanvas');
   canvas.getContext('2d').clearRect(0,0,200,110);
   drawGauge(0,100,false);
@@ -1684,4 +2244,3 @@ function setTimer(lbl,val,sub,mode) {
 </script>
 </body>
 </html>
-
