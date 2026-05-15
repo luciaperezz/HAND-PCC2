@@ -4,3 +4,4 @@ features/
 models/
 __pycache__/
 *.pyc.DS_Store
+python/session_history.json
