@@ -10,7 +10,8 @@ Group 1 (Stroke/EMG):
     Source: Kinematic & EMG dataset (Figshare)
 
 Group 2 (Parkinson's/IMU):
-    - PADS smartwatch dataset
+    - PADS smartwatch dataset (wrist IMU: accelerometer + gyroscope, 100 Hz)
+    - Healthy (label 0) and Parkinson's (label 1) — Other Movement Disorders excluded
     Source: PhysioNet
 
 Outputs:
@@ -28,7 +29,7 @@ import pandas as pd
 
 # ── Configure paths ────────────────────────────────────────────────────────────
 DATA_DIR_STROKE = "data/stroke"
-DATA_DIR_PADS   = "data/pads"
+DATA_DIR_PADS   = "../data/pads"
 OUTPUT_DIR      = "features"
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -118,15 +119,15 @@ def main():
         print(f"\n[SKIP] Group 1: {e}")
         errors.append("group1")
 
-    # ── Group 2 commented out — already generated, no need to re-run ──────────
-    # try:
-    #     df2 = build_group2_dataset()
-    #     out2 = os.path.join(OUTPUT_DIR, "group2_features.csv")
-    #     df2.to_csv(out2, index=False)
-    #     print(f"✓ Saved Group 2 features → {out2}")
-    # except FileNotFoundError as e:
-    #     print(f"\n[SKIP] Group 2: {e}")
-    #     errors.append("group2")
+    # ── Group 2 ───────────────────────────────────────────────────────────────
+    try:
+        df2 = build_group2_dataset()
+        out2 = os.path.join(OUTPUT_DIR, "group2_features.csv")
+        df2.to_csv(out2, index=False)
+        print(f"\n✓ Saved Group 2 features → {out2}")
+    except FileNotFoundError as e:
+        print(f"\n[SKIP] Group 2: {e}")
+        errors.append("group2")
 
     if errors:
         print(f"\n⚠ Skipped: {errors}.")

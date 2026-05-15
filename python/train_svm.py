@@ -7,8 +7,9 @@ Group 1 (Stroke/EMG):
     - Binary SVM: Healthy (0) vs Stroke (1)
     - Also computes and saves healthy centroid for k-NN progress tracker
 
-Group 2 (Parkinson's/IMU):
+Group 2 (Parkinson's/Gait):
     - Binary SVM: Healthy (0) vs Parkinson's (1)
+    - Also computes and saves healthy centroid for k-NN progress tracker
 
 Reads:
     features/group1_features.csv
@@ -18,6 +19,7 @@ Outputs:
     models/group1_svm.joblib                (scaler + SVM for Group 1)
     models/group1_healthy_centroid.joblib   (centroid + scaler for k-NN)
     models/group2_svm.joblib                (scaler + SVM for Group 2)
+    models/group2_healthy_centroid.joblib   (centroid + scaler for k-NN)
 """
 
 import os
@@ -203,15 +205,30 @@ def train_group1(csv_path: str) -> tuple:
     return best_model, centroid_data
 
 
-def train_group2(csv_path: str) -> Pipeline:
+def train_group2(csv_path: str) -> tuple:
     """
     Group 2: Binary SVM — Healthy (0) vs Parkinson's (1).
+    Also computes healthy centroid for k-NN progress tracker.
+    Returns (trained_pipeline, centroid_dict)
     """
     print(f"\n── Group 2 Parkinson's ──────────────────────────────────────────")
 
     X, y, groups = load_data(csv_path, GROUP2_FEATURES)
     y = np.where(y > 0, 1, 0)
     print(f"  Labels after merging: { {int(k): int(v) for k,v in zip(*np.unique(y, return_counts=True))} }")
+
+    # ── Compute healthy centroid for k-NN tracker ──────────────────────────
+    # Use only healthy subjects (label=0) to define the reference centroid
+    healthy_mask = y == 0
+    scaler_knn = StandardScaler()
+    X_scaled_all = scaler_knn.fit_transform(X)
+    centroid = X_scaled_all[healthy_mask].mean(axis=0)
+    print(f"  Healthy centroid computed from {healthy_mask.sum()} healthy recordings.")
+    centroid_data = {
+        "scaler":       scaler_knn,
+        "centroid":     centroid,
+        "feature_cols": GROUP2_FEATURES
+    }
 
     pipeline = Pipeline([
         ("scaler", StandardScaler()),
@@ -288,7 +305,7 @@ def train_group2(csv_path: str) -> Pipeline:
     print(f"  Best params: {best_params}")
     print(f"  Best CV F1:  {best_cv_f1:.3f}")
 
-    return best_model
+    return best_model, centroid_data
 
 
 def main():
@@ -309,13 +326,18 @@ def main():
     else:
         print(f"\n[SKIP] Group 1: {csv1} not found.")
 
-    # ── Group 2: train SVM ────────────────────────────────────────────────────
+    # ── Group 2: train SVM + compute healthy centroid ─────────────────────────
     csv2 = os.path.join(FEATURES_DIR, "group2_features.csv")
     if os.path.exists(csv2):
-        model2 = train_group2(csv2)
-        out2 = os.path.join(MODELS_DIR, "group2_svm.joblib")
-        joblib.dump(model2, out2)
-        print(f"\n  ✓ Group 2 SVM saved → {out2}")
+        model2, centroid_data2 = train_group2(csv2)
+
+        out2_svm = os.path.join(MODELS_DIR, "group2_svm.joblib")
+        joblib.dump(model2, out2_svm)
+        print(f"\n  ✓ Group 2 SVM saved → {out2_svm}")
+
+        out2_centroid = os.path.join(MODELS_DIR, "group2_healthy_centroid.joblib")
+        joblib.dump(centroid_data2, out2_centroid)
+        print(f"  ✓ Group 2 centroid saved → {out2_centroid}")
     else:
         print(f"\n[SKIP] Group 2: {csv2} not found.")
 
@@ -324,6 +346,7 @@ def main():
     print("    - models/group1_svm.joblib")
     print("    - models/group1_healthy_centroid.joblib")
     print("    - models/group2_svm.joblib")
+    print("    - models/group2_healthy_centroid.joblib")
 
 
 if __name__ == "__main__":
