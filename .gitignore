@@ -3,4 +3,4 @@ data/pads/
 features/
 models/
 __pycache__/
-*.pyc
+*.pyc.DS_Store
