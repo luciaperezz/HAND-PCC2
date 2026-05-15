@@ -1548,6 +1548,28 @@ function setTimer(lbl,val,sub,mode) {
 //  NAVIGATION
 // ══════════════════════════════════════════════════════════════
 // init() is triggered by enterDashboard()
+
+
+
+
+    <!-- SCRIPT DEL WEBSOCKET -->
+    const socket = new WebSocket("ws://localhost:8000/ws");
+
+    socket.onopen = function() {
+        console.log("Connected to backend");
+    };
+
+    socket.onmessage = function(event) {
+        console.log("Server:", event.data);
+    };
+
+    function sendExerciseStart(){
+        socket.send("start_exercise");
+    }
+
+
+
 </script>
 </body>
 </html>
+
