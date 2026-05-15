@@ -2,19 +2,25 @@
 # This file orchestrates the entire system
 
 import asyncio
+import os
 import threading
 import sys
 from collections import deque
 from enum import Enum
 from datetime import datetime
 
+import joblib
+import numpy as np
+
 # ═══════════════════════════════════════════════════════════════
 # IMPORTS OF OWN MODULES
 # ═══════════════════════════════════════════════════════════════
 
 import signal_processing
-import feature_extraction
+from session_history import save_score
 import parser
+from feature_extraction.emg_features import extract_emg_features
+from feature_extraction.imu_features import extract_imu_features
 # import serial_reader  # Not used in Option A
 # import rules_feedback  # TODO: implement
 
@@ -187,59 +193,48 @@ class SessionFSM:
 # ═══════════════════════════════════════════════════════════════
 # FEATURE PROCESSING
 # ═══════════════════════════════════════════════════════════════
+# ── Sampling rate (MUST UPDATE LATER WITH DEVIDE -NAYA NAYA NAYA NAYA -------- 
+FS = 100  # Hz — placeholder, same rate for EMG and IMU
 
 def extract_trial_features(trial_data, disease_type, mvc):
     """
-    Extracts features from recorded trial
-    
-    Args:
-        trial_data: list of frames {"pressure": ..., "emg": ..., "imu": {...}}
-        disease_type: Disease.TYPE_STROKE or Disease.TYPE_TREMOR
-        mvc: MVC calibration value
-    
-    Returns:
-        dict with extracted features
+    Extracts features from recorded trial using the same
+    feature functions used during training.
     """
     if not trial_data:
         return {}
-    
-    # Extract arrays for each signal
-    pressures = [f["pressure"] for f in trial_data if "pressure" in f]
-    emg_raw = [f.get("emg_raw", 0) for f in trial_data]
-    
-    # Basic pressure features (always)
+
+    # Always extract pressure stats
+    pressures = np.array([f.get("pressure", 0) for f in trial_data], dtype=float)
     features = {
         "pressure": {
-            "mvc": max(pressures) if pressures else 0,
-            "mean": sum(pressures) / len(pressures) if pressures else 0,
-            "min": min(pressures) if pressures else 0,
+            "max":  float(np.max(pressures)),
+            "mean": float(np.mean(pressures)),
+            "min":  float(np.min(pressures)),
         },
         "frames_captured": len(trial_data),
-        "duration_secs": len(trial_data) / 25,  # Assuming 25 Hz
+        "duration_secs":   round(len(trial_data) / FS, 2),
     }
-    
-    # Specific features by patient type
-    if disease_type == Disease.TYPE_STROKE:
-        # EMG features
-        if emg_raw:
-            features["emg"] = {
-                "rms": (sum([e**2 for e in emg_raw]) / len(emg_raw))**0.5,
-                "mean": sum(emg_raw) / len(emg_raw),
-            }
-        
-        # RFD (Rate of Force Development)
-        if len(pressures) > 1:
-            features["pressure"]["rfd"] = (max(pressures) - pressures[0]) / len(pressures)
-    
-    elif disease_type == Disease.TYPE_TREMOR:
-        # IMU features - TODO: implement with imu_features.py
-        features["imu"] = {
-            "tremor_power": 0.0,  # Placeholder
-            "orientation_stability": 0.0,
-        }
-    
-    return features
 
+    if disease_type == Disease.TYPE_STROKE:
+        # Build raw EMG array and extract features matching training
+        emg_raw = np.array([f.get("emg_raw", 0) for f in trial_data], dtype=float)
+        emg_feats = extract_emg_features(emg_raw, FS)
+        features["emg"] = emg_feats
+        features["ml_input"] = emg_feats  # keys: emg_rms, median_freq, fatigue_index, tremor_band_power, peak_tremor_freq
+
+    elif disease_type == Disease.TYPE_TREMOR:
+        # Build raw IMU array (n_samples, 6) — ax, ay, az, gx, gy, gz
+        imu_raw = np.array([
+            [f.get("ax", 0), f.get("ay", 0), f.get("az", 0),
+             f.get("gx", 0), f.get("gy", 0), f.get("gz", 0)]
+            for f in trial_data
+        ], dtype=float)
+        imu_feats = extract_imu_features(imu_raw, FS)
+        features["imu"] = imu_feats
+        features["ml_input"] = imu_feats  # keys: tremor_power, tremor_frequency, orientation_stability, range_of_motion, hold_stability, drift_rate
+
+    return features
 # ═══════════════════════════════════════════════════════════════
 # MAIN LOOP
 # ═══════════════════════════════════════════════════════════════
@@ -256,7 +251,15 @@ async def main():
     
     # Import queues from api.py
     from web.api import shared_queue, command_queue, broadcast
-    
+
+    MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
+
+    group1_model    = joblib.load(os.path.join(MODEL_DIR, "group1_svm.joblib"))
+    group1_centroid = joblib.load(os.path.join(MODEL_DIR, "group1_healthy_centroid.joblib"))
+    group2_model    = joblib.load(os.path.join(MODEL_DIR, "group2_svm.joblib"))
+    group2_centroid = joblib.load(os.path.join(MODEL_DIR, "group2_healthy_centroid.joblib"))
+
+    print("✅ ML models loaded successfully")
     # Create FSM
     fsm = SessionFSM()
     
@@ -408,25 +411,86 @@ async def main():
         # ═══════════════════════════════════════════════════════════
         
         if fsm.state == State.TRIAL_PROCESSING:
-            # Extract features
             features = extract_trial_features(
                 fsm.context["trial_data"],
                 current_disease,
-                fsm.context["mvc"]
+                fsm.context["mvc"],
             )
-            
-            # Send result to frontend
+
+            prediction = None
+            confidence = None
+            progress_score = None
+            last_score = None
+            improvement = None
+
+            ml_input = features.get("ml_input", {})
+            has_valid_input = ml_input and not any(
+                np.isnan(v) for v in ml_input.values()
+            )
+            progress_label = "Unknown"
+
+            if has_valid_input:
+                if current_disease == Disease.TYPE_STROKE:
+                    feature_order = [
+                        "emg_rms", "median_freq", "fatigue_index",
+                        "tremor_band_power", "peak_tremor_freq",
+                    ]
+                    model = group1_model
+                    centroid = group1_centroid
+                else:
+                    feature_order = [
+                        "tremor_power", "tremor_frequency",
+                        "orientation_stability", "range_of_motion",
+                        "hold_stability", "drift_rate",
+                    ]
+                    model = group2_model
+                    centroid = group2_centroid
+
+                X = np.array([[ml_input[k] for k in feature_order]])
+
+                prediction = int(model.predict(X)[0])
+                confidence = float(model.predict_proba(X)[0][prediction])
+
+                X_scaled = centroid["scaler"].transform(X)
+                progress_score = round(
+                    float(np.linalg.norm(X_scaled - centroid["centroid"])), 3
+                )
+                last_score = save_score(
+                    fsm.context["patient_id"],
+                    fsm.context["exercise"],
+                    progress_score,
+                )
+                improvement = (
+                    round(last_score - progress_score, 3)
+                    if last_score is not None
+                    else None
+                )
+                # Determine progress label
+                if improvement is None:
+                    progress_label = "First session"
+                elif improvement > 0.2:
+                    progress_label = "Improving"
+                elif improvement < -0.2:
+                    progress_label = "Deteriorating"
+                else:
+                    progress_label = "Stable"
+
             await broadcast({
                 "type": "trial_complete",
                 "trial": fsm.context["trial_num"],
                 "exercise": fsm.context["exercise"],
                 "features": features,
-                "state": fsm.state.value
+                "prediction": prediction,
+                "confidence": confidence,
+                "progress_score": progress_score,
+                "state": fsm.state.value,
+                "previous_score": last_score,
+                "improvement": improvement,
+                "progress_label": progress_label,
             })
-            
-            # Transition to REST
+
             fsm.transition("features_ready")
-        
+
         elif fsm.state == State.TRIAL_REST:
             # Check rest timeout (30 seconds)
             elapsed = (datetime.now() - fsm.context["rest_start_time"]).total_seconds()

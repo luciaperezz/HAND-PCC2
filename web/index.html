@@ -1241,11 +1241,53 @@ async function connectBLE() {
         // ═══════════════════════════════════════════════════════════
         else if (data.type === 'trial_complete') {
           console.log("✅ Trial completado por main.py:", data);
-          
-          // Mostrar features en la UI
-          const features = data.features || {};
-          console.log("Features extraídas:", features);
-          
+
+          // Store ML results on the trial result for this trial
+          const trialIdx = data.trial;
+          if (trialResults[trialIdx]) {
+            trialResults[trialIdx].prediction    = data.prediction;
+            trialResults[trialIdx].confidence    = data.confidence;
+            trialResults[trialIdx].progressScore = data.progress_score;
+            trialResults[trialIdx].previousScore = data.previous_score;
+            trialResults[trialIdx].improvement   = data.improvement;
+            trialResults[trialIdx].progressLabel = data.progress_label;
+          }
+
+          // Show ML result banner on screen
+          if (data.progress_label) {
+            const labelColors = {
+              "Improving":     "var(--accent)",
+              "Stable":        "var(--blue)",
+              "Deteriorating": "#e05c5c",
+              "First session": "var(--dim)",
+              "Unknown":       "var(--dim)",
+            };
+            const color = labelColors[data.progress_label] || "var(--dim)";
+            const confText = data.confidence != null ? ` · ${(data.confidence * 100).toFixed(0)}% confidence` : "";
+            const impText  = data.improvement != null ? ` · Δ ${data.improvement > 0 ? "+" : ""}${data.improvement}` : "";
+
+            // Show in a banner (reuse or create element)
+            let banner = document.getElementById('ml-result-banner');
+            if (!banner) {
+              banner = document.createElement('div');
+              banner.id = 'ml-result-banner';
+              banner.style.cssText = `
+                margin: 12px 0; padding: 12px 16px; border-radius: 8px;
+                border: 1px solid var(--border); font-size: 13px;
+                display: flex; align-items: center; gap: 10px;
+              `;
+              // Insert after the trial list
+              const trialList = document.getElementById('trial-list');
+              if (trialList) trialList.after(banner);
+            }
+            banner.innerHTML = `
+              <span style="font-size:18px;">${data.progress_label === "Improving" ? "✅" : data.progress_label === "Deteriorating" ? "⚠️" : "📊"}</span>
+              <div>
+                <div style="font-weight:500;color:${color};">${data.progress_label}</div>
+                <div style="color:var(--dim);font-size:11px;">Trial ${data.trial + 1}${confText}${impText}</div>
+              </div>
+            `;
+          }
         }
         
         // ═══════════════════════════════════════════════════════════
@@ -1943,6 +1985,8 @@ function saveSession() {
     id: Date.now(), datetime: new Date().toISOString(),
     patientId: patientSession.id, patientGroup: g,
     exercise: currentExercise, trials: done,
+    progressLabel: done.length ? done[done.length-1].progressLabel : null,
+    progressScore: done.length ? done[done.length-1].progressScore : null,
     summary: g===1&&currentExercise===1 ? {bestMVC, avgRFD:avg('rfd')}
            : g===1&&currentExercise===2 ? {avgTimeBand:avg('timeInBand'),avgForceCV:avg('forceCV'),avgFatigue:avg('fatigueIdx'),avgMedFreq:avg('medFreqShift')}
            : g===2&&currentExercise===1 ? {avgForceCV:avg('forceCV'),avgHFO:avg('hfoPower'),avgTremorPow:avg('tremorPow'),avgTremorFreq:avg('tremorFreq')}
@@ -2112,6 +2156,9 @@ function renderHistory() {
       trialRows=(sess.trials||[]).map((t,i)=>`<tr><td><strong>T${i+1}</strong></td><td><span class="vbadge blue">${(t.timingAcc||0).toFixed(0)}%</span></td><td><span class="vbadge blue">${(t.ampAcc||0).toFixed(0)}%</span></td><td><span class="vbadge">${(t.riseTime||0).toFixed(2)}s</span></td></tr>`).join('');
       summaryHTML=`<div class="ss-item"><div class="ss-lbl">AVG TIMING</div><div class="ss-val">${(s.avgTiming||0).toFixed(0)}%</div></div><div class="ss-item"><div class="ss-lbl">AVG AMP ACC</div><div class="ss-val">${(s.avgAmpAcc||0).toFixed(0)}%</div></div>`;
     }
+    const mlColor = sess.progressLabel==='Improving' ? 'var(--accent)' : sess.progressLabel==='Deteriorating' ? '#e05c5c' : 'var(--blue)';
+    const mlBadge = sess.progressLabel ? `<div class="ss-item"><div class="ss-lbl">PROGRESS</div><div class="ss-val" style="color:${mlColor};">${sess.progressLabel}</div></div>` : '';
+    summaryHTML += mlBadge;
     return `<div class="session-block"><div class="sess-head"><div>
       <div class="sess-date">${dateStr} ${exTag} <span class="pbadge-group ${groupClass}" style="font-size:10px;margin-left:6px;">${groupLabel}</span> <span style="font-size:11px;color:var(--dim);margin-left:6px;">· ${sess.patientId||''}</span></div>
       <div class="sess-time">${timeStr}</div></div>
